@@ -1,0 +1,548 @@
+---
+title: "Text Mining Movie Reviews"
+categories: ["R"]
+date: "6-16-2026"
+draft: false
+format:
+  html:
+    toc: true
+---
+
+# Modifications... 
+
+## Tokenize Bi-Gram
+
+I am not seeing a lot of insight from looking at single words. 
+
+```{r}
+tokenize_text_bigram <- function(data) {
+  data |>
+    unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) |>
+    separate(bigram, into = c("word1", "word2"), sep = " ") |>
+    filter(
+      !word1 %in% stop_words$word,
+      !word2 %in% stop_words$word
+    ) |>
+    unite(word, word1, word2, sep = " ")
+}
+```
+
+Even with the bi-gram, I want to see what we get if we remove proper nouns. 
+
+```{r}
+dogville_tokenize_bigram <- tokenize_text_bigram(clean_dogville) 
+dogville_tokenize_bigram <- dogville_tokenize_bigram |>
+  filter(
+    !str_detect(
+      word,
+      "\\b(film|movie|dogville|trier|von|kidman|nicole|lars|paul|bettany|lauren|bacall|james|caan|john|hurt|patricia|clarkson|ben|gazzara)\\b"
+    )
+  )
+```
+
+```{r}
+sentiment_wordcloud <- function(data, lexicon = "bing") {
+  sentiment_words <- get_sentiments(lexicon)
+
+  sentiment_matrix <- data |>
+    separate(word, into = c("word1", "word2"), sep = " ", remove = FALSE) |>
+    left_join(
+      sentiment_words,
+      by = c("word1" = "word")
+    ) |>
+    rename(sentiment1 = sentiment) |>
+    left_join(
+      sentiment_words,
+      by = c("word2" = "word")
+    ) |>
+    rename(sentiment2 = sentiment) |>
+    mutate(
+      sentiment = case_when(
+        !is.na(sentiment1) & is.na(sentiment2) ~ sentiment1,
+        is.na(sentiment1) & !is.na(sentiment2) ~ sentiment2,
+        sentiment1 == sentiment2 ~ sentiment1,
+        TRUE ~ NA_character_
+      )
+    ) |>
+    filter(!is.na(sentiment)) |>
+    count(word, sentiment) |>
+    pivot_wider(
+      names_from = sentiment,
+      values_from = n,
+      values_fill = 0
+    ) |>
+    column_to_rownames("word") |>
+    as.matrix()
+
+  comparison.cloud(
+    sentiment_matrix,
+    colors = c("#C0392B", "#2E7D32"),
+    max.words = 100
+  )
+}
+```
+
+## Plot Term Frequencies
+
+```{r}
+dog_ville_frequencies |>
+    slice_max(n, n = 8) |>
+    mutate(word = reorder(word, n)) |>
+    ggplot(aes(y = word, x = n)) +
+    geom_col() +
+    labs(
+      title = "Top 8 Words",
+      x = "Count"
+    )
+```
+
+## Work Cloud
+
+```{r}
+sentiment_wordcloud <- function(data, lexicon = "bing") {
+  sentiment_matrix <- data |>
+    inner_join(get_sentiments(lexicon), by = "word") |>
+    count(word, sentiment) |>
+    pivot_wider(
+      names_from = sentiment,
+      values_from = n,
+      values_fill = 0
+    ) |>
+    column_to_rownames("word") |>
+    as.matrix()
+
+  comparison.cloud(
+    sentiment_matrix,
+    colors = c("#C0392B", "#2E7D32"),
+    max.words = 100
+  )
+}
+```
+
+## Plot Topics
+
+```{r}
+plot_topics <- function(model) {
+  top_terms <- tidy(model, matrix = "beta") |>
+    group_by(topic) |>
+    slice_max(beta, n = 7, with_ties = FALSE) |>
+    summarise(terms = paste(term, collapse = ", "))
+
+  tidy(model, matrix = "gamma") |>
+    group_by(topic) |>
+    summarise(gamma = mean(gamma)) |>
+    left_join(top_terms, by = "topic") |>
+    mutate(topic = reorder(paste("Topic", topic), gamma)) |>
+    ggplot(aes(topic, gamma, label = terms)) +
+    geom_col() +
+    geom_text(hjust = 0, nudge_y = 0.002, size = 3) +
+    coord_flip(clip = "off") +
+    scale_y_continuous(
+      labels = scales::percent,
+      expand = expansion(mult = c(0, 0.7))
+    ) +
+    labs(
+      x = NULL,
+      y = "Average topic prevalence",
+      title = "Topic Prevalence and Top Terms"
+    ) +
+    theme_minimal()
+}
+```
+
+```{r}
+dogville_model <- model_data(dogville_stm, k = 7)
+plot_topics(dogville_model)
+```
+
+
+# Old
+
+(everything below this is old..)
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(wordcloud)
+library(readr)
+```
+
+```{r}
+dogville <- read_csv("data/dogville_reviews_text_only.csv")
+head(dogville)
+```
+
+
+# Clean Data
+
+```{r}
+clean_text <- function(data, text) {
+  data |>
+    mutate(
+      text_clean = {{ text }} |>
+        str_to_lower() |>
+        str_replace_all("<br\\s*/?>", " ") |>
+        str_replace_all("[^a-z0-9\\s]", " ") |>
+        str_squish()
+    )
+}
+```
+
+```{r}
+clean_dogville <- clean_text(dogville, review_text)
+```
+
+# Tokenize Text
+
+```{r}
+tokenize_text <- function(data) {
+  data |>
+    unnest_tokens(word, text_clean) |>
+    anti_join(stop_words, by = "word")
+}
+```
+
+```{r}
+dogville_tokenize <- tokenize_text(clean_dogville) 
+```
+
+```{r}
+tokenize_text <- function(data) {
+  data |>
+    unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) |>
+    separate(bigram, into = c("word1", "word2"), sep = " ") |>
+    filter(
+      !word1 %in% stop_words$word,
+      !word2 %in% stop_words$word
+    ) |>
+    unite(word, word1, word2, sep = " ")
+}
+dogville_tokenize <- tokenize_text(clean_dogville) 
+dogville_tokenize <- dogville_tokenize |>
+  filter(
+    !str_detect(
+      word,
+      "\\b(film|movie|dogville|trier|von|kidman|nicole|lars|paul|bettany|lauren|bacall|james|caan|john|hurt|patricia|clarkson|ben|gazzara)\\b"
+    )
+  )
+```
+
+
+# Term Frequencies
+
+```{r}
+term_frequencies <- function(data) {
+  data |>
+    count(word, sort = TRUE) |>
+    slice_max(n, n = 8) |>
+    mutate(word = reorder(word, n)) |>
+    ggplot(aes(y = word, x = n)) +
+    geom_col() +
+    labs(
+      title = "Top 8 Words",
+      x = "Count"
+    )
+}
+```
+
+```{r}
+dog_ville_frequencies <- term_frequencies(dogville_tokenize)
+dog_ville_frequencies
+```
+
+# Sentiment Analysis
+
+```{r}
+sentiment_wordcloud <- function(data, lexicon = "bing") {
+  sentiment_words <- get_sentiments(lexicon)
+
+  data |>
+    inner_join(sentiment_words, by = "word") |>
+    count(word, sentiment, sort = TRUE) |>
+    mutate(color = if_else(sentiment == "negative",
+    "#C0392B",
+    "#2E7D32")) |>
+    with(
+      wordcloud(
+        words = word,
+        freq = n,
+        colors = color,
+        ordered.colors = TRUE,
+        max.words = 100
+      )
+    )
+}
+```
+
+```{r}
+# separating positive and negative
+sentiment_wordcloud <- function(data, lexicon = "bing") {
+  sentiment_counts <- data |>
+    inner_join(get_sentiments(lexicon), by = "word") |>
+    count(word, sentiment, sort = TRUE)
+
+  par(mfrow = c(2, 1))
+
+  sentiment_counts |>
+    filter(sentiment == "positive") |>
+    with(
+      wordcloud(
+        word,
+        n,
+        colors = "#2E7D32",
+        max.words = 50
+      )
+    )
+
+  sentiment_counts |>
+    filter(sentiment == "negative") |>
+    with(
+      wordcloud(
+        word,
+        n,
+        colors = "#C0392B",
+        max.words = 50
+      )
+    )
+
+  par(mfrow = c(1, 1))
+}
+```
+
+```{r}
+sentiment_wordcloud <- function(data, lexicon = "bing") {
+  sentiment_words <- get_sentiments(lexicon)
+
+  sentiment_matrix <- data |>
+    separate(word, into = c("word1", "word2"), sep = " ", remove = FALSE) |>
+    left_join(
+      sentiment_words,
+      by = c("word1" = "word")
+    ) |>
+    rename(sentiment1 = sentiment) |>
+    left_join(
+      sentiment_words,
+      by = c("word2" = "word")
+    ) |>
+    rename(sentiment2 = sentiment) |>
+    mutate(
+      sentiment = case_when(
+        !is.na(sentiment1) & is.na(sentiment2) ~ sentiment1,
+        is.na(sentiment1) & !is.na(sentiment2) ~ sentiment2,
+        sentiment1 == sentiment2 ~ sentiment1,
+        TRUE ~ NA_character_
+      )
+    ) |>
+    filter(!is.na(sentiment)) |>
+    count(word, sentiment) |>
+    pivot_wider(
+      names_from = sentiment,
+      values_from = n,
+      values_fill = 0
+    ) |>
+    column_to_rownames("word") |>
+    as.matrix()
+
+  comparison.cloud(
+    sentiment_matrix,
+    colors = c("#C0392B", "#2E7D32"),
+    max.words = 100
+  )
+}
+```
+
+
+
+```{r}
+dogville_sentiment <- sentiment_wordcloud(dogville_tokenize)
+```
+
+
+# Choosing K
+
+```{r}
+plot_k_diagnostics <- function(search_k) {
+  search_k$results |>
+    select(K, exclus, semcoh, heldout, residual) |>
+    pivot_longer(
+      cols = -K,
+      names_to = "metric",
+      values_to = "value"
+    ) |>
+    ggplot(aes(x = K, y = value)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ metric, scales = "free_y") +
+    labs(
+      title = "Model Diagnostics by Number of Topics",
+      x = "Number of Topics"
+    )
+}
+```
+
+
+```{r}
+library(stm)
+dogville_dtm <- dogville_tokenize |>
+  count(row_id, word) |>
+  cast_sparse(row_id, word, n)
+
+dogville_stm <- readCorpus(dogville_dtm, type = "Matrix")
+
+dogville_search_k <- searchK(
+  documents = dogville_stm$documents,
+  vocab = dogville_stm$vocab,
+  K = 2:10
+)
+
+dogville_search_k <- searchK(
+  dogville_dtm,
+  K = 2:5
+)
+
+dogville_k_diagnostics <- plot_k_diagnostics(dogville_search_k)
+```
+
+```{r}
+dogville_stm <- readCorpus(
+  as.matrix(dogville_dtm),
+  type = "dtm"
+)
+
+dogville_search_k <- searchK(
+  documents = dogville_stm$documents,
+  vocab = dogville_stm$vocab,
+  K = 2:10
+)
+```
+
+
+```{r}
+plot_k_diagnostics <- function(data, k = 2:10) {
+  heldout <- make.heldout(data)
+
+  tibble(K = k) |>
+    mutate(
+      topic_model = map(K, ~ stm(data, K = .x, verbose = FALSE)),
+      semantic_coherence = map(topic_model, semanticCoherence, data),
+      eval_heldout = map(topic_model, eval.heldout, heldout$missing),
+      residual = map(topic_model, checkResiduals, data),
+      bound = map_dbl(topic_model, ~ max(.x$convergence$bound)),
+      lbound = bound + map_dbl(topic_model, ~ lfactorial(.x$settings$dim$K))
+    ) |>
+    transmute(
+      K,
+      `Lower bound` = lbound,
+      Residuals = map_dbl(residual, "dispersion"),
+      `Semantic coherence` = map_dbl(semantic_coherence, mean),
+      `Held-out likelihood` = map_dbl(eval_heldout, "expected.heldout")
+    ) |>
+    pivot_longer(-K, names_to = "Metric", values_to = "Value") |>
+    ggplot(aes(K, Value)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ Metric, scales = "free_y") +
+    labs(
+      x = "K (number of topics)",
+      y = NULL,
+      title = "Model diagnostics by number of topics"
+    )
+}
+```
+
+```{r}
+dogville_dtm <- dogville_tokenize |>
+  count(row_id, word) |>
+  cast_sparse(row_id, word, n)
+
+dogville_stm <- readCorpus(
+  as.matrix(dogville_dtm),
+  type = "dtm"
+)
+
+plot_k_diagnostics(dogville_dtm)
+```
+
+# Topic Model
+
+```{r}
+model_data <- function(preped_data, k = 8) {
+  fit <- stm(
+    documents = preped_data$documents,
+    vocab = preped_data$vocab,
+    K = k,
+    init.type = "Spectral"
+  )
+
+  top_terms <- tidy(fit, matrix = "beta") |>
+    group_by(topic) |>
+    slice_max(beta, n = 7, with_ties = FALSE) |>
+    summarise(terms = paste(term, collapse = ", "))
+
+  tidy(fit, matrix = "gamma") |>
+    group_by(topic) |>
+    summarise(gamma = mean(gamma)) |>
+    left_join(top_terms, by = "topic") |>
+    mutate(topic = reorder(paste("Topic", topic), gamma)) |>
+    ggplot(aes(topic, gamma, label = terms)) +
+    geom_col() +
+    geom_text(hjust = 0, nudge_y = 0.002, size = 3) +
+    coord_flip(clip = "off") +
+    scale_y_continuous(
+      labels = scales::percent,
+      expand = expansion(mult = c(0, 0.7))
+    ) +
+    labs(
+      x = NULL,
+      y = "Average topic prevalence",
+      title = "Topic Prevalence and Top Terms"
+    ) +
+    theme_minimal()
+}
+```
+
+```{r}
+model_data <- function(preped_data, k = 8) {
+  fit <- stm(
+    documents = preped_data$documents,
+    vocab = preped_data$vocab,
+    K = k,
+    init.type = "Spectral"
+  )
+
+  top_terms <- tidy(fit, matrix = "beta") |>
+    group_by(topic) |>
+    slice_max(beta, n = 7, with_ties = FALSE) |>
+    summarise(terms = paste(term, collapse = ", "))
+
+  tidy(fit, matrix = "gamma") |>
+    group_by(topic) |>
+    summarise(gamma = mean(gamma)) |>
+    left_join(top_terms, by = "topic") |>
+    mutate(topic = reorder(paste("Topic", topic), gamma)) |>
+    ggplot(aes(topic, gamma, label = terms)) +
+    geom_col() +
+    geom_text(hjust = 0, nudge_y = 0.002, size = 3) +
+    coord_flip(clip = "off") +
+    scale_y_continuous(
+      labels = scales::percent,
+      expand = expansion(mult = c(0, 0.7))
+    ) +
+    labs(
+      x = NULL,
+      y = "Average topic prevalence",
+      title = "Topic Prevalence and Top Terms"
+    ) +
+    theme_minimal()
+} 
+```
+
+
+```{r}
+dogville_model <- model_data(dogville_stm, k = 7)
+
+dogville_model
+```
+
+
+

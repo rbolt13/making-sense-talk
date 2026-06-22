@@ -1,0 +1,288 @@
+---
+title: "index"
+format: html
+---
+
+```{r}
+library(readr)
+
+dogville <- read_csv("data/dogville_reviews_text_only.csv")
+elf <- read_csv("data/elf_reviews_text_only.csv")
+
+head(dogville)
+head(elf)
+```
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(readr)
+library(stringr)
+
+# load data ---------------------------------------------------------------
+
+dogville <- read_csv("data/dogville_reviews_text_only.csv") %>%
+  mutate(movie = "Dogville")
+
+elf <- read_csv("data/elf_reviews_text_only.csv") %>%
+  mutate(movie = "Elf")
+
+reviews <- bind_rows(dogville, elf)
+
+# basic cleaning ----------------------------------------------------------
+
+reviews_clean <- reviews %>%
+  mutate(
+    review_text_clean = review_text %>%
+      str_to_lower() %>%
+      str_replace_all("<br\\s*/?>", " ") %>%
+      str_replace_all("[^a-z\\s]", " ") %>%
+      str_squish()
+  )
+
+# unigrams / single words -------------------------------------------------
+
+unigrams <- reviews_clean %>%
+  select(movie, row_id, review_text_clean) %>%
+  unnest_tokens(word, review_text_clean) %>%
+  anti_join(stop_words, by = "word")
+
+unigram_counts <- unigrams %>%
+  count(movie, word, sort = TRUE)
+
+head(unigram_counts, 20)
+```
+
+```{r}
+# bigrams / two-word phrases ---------------------------------------------
+
+bigrams <- reviews_clean %>%
+  select(movie, row_id, review_text_clean) %>%
+  unnest_tokens(bigram, review_text_clean, token = "ngrams", n = 2)
+
+bigrams_separated <- bigrams %>%
+  separate(bigram, into = c("word1", "word2"), sep = " ")
+
+bigram_counts <- bigrams_separated %>%
+  filter(
+    !word1 %in% stop_words$word,
+    !word2 %in% stop_words$word
+  ) %>%
+  unite(bigram, word1, word2, sep = " ") %>%
+  count(movie, bigram, sort = TRUE)
+
+head(bigram_counts, 20)
+```
+
+```{r}
+# trigrams / three-word phrases ------------------------------------------
+
+trigrams <- reviews_clean %>%
+  select(movie, row_id, review_text_clean) %>%
+  unnest_tokens(trigram, review_text_clean, token = "ngrams", n = 3)
+
+trigrams_separated <- trigrams %>%
+  separate(trigram, into = c("word1", "word2", "word3"), sep = " ")
+
+trigram_counts <- trigrams_separated %>%
+  filter(
+    !word1 %in% stop_words$word,
+    !word2 %in% stop_words$word,
+    !word3 %in% stop_words$word
+  ) %>%
+  unite(trigram, word1, word2, word3, sep = " ") %>%
+  count(movie, trigram, sort = TRUE)
+
+head(trigram_counts, 20)
+```
+
+```{r}
+# optional: top terms by movie -------------------------------------------
+
+unigram_counts %>%
+  group_by(movie) %>%
+  slice_max(n, n = 20) %>%
+  ungroup()
+
+bigram_counts %>%
+  group_by(movie) %>%
+  slice_max(n, n = 20) %>%
+  ungroup()
+
+trigram_counts %>%
+  group_by(movie) %>%
+  slice_max(n, n = 20) %>%
+  ungroup()
+```
+
+# Sentiment Analysis
+
+```{r}
+
+# sentiment lexicon -------------------------------------------------------
+
+bing_sentiment <- get_sentiments("bing")
+
+# join sentiment words ----------------------------------------------------
+
+sentiment_words <- unigrams %>%
+  inner_join(bing_sentiment, by = "word")
+
+# sentiment word counts by movie -----------------------------------------
+
+sentiment_counts <- sentiment_words %>%
+  count(movie, sentiment, word, sort = TRUE)
+
+head(sentiment_counts, 20)
+```
+
+```{r}
+# overall positive / negative counts by movie ----------------------------
+
+movie_sentiment_summary <- sentiment_words %>%
+  count(movie, sentiment) %>%
+  pivot_wider(
+    names_from = sentiment,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  mutate(
+    sentiment_score = positive - negative,
+    pct_positive = positive / (positive + negative),
+    pct_negative = negative / (positive + negative)
+  )
+
+movie_sentiment_summary
+```
+
+```{r}
+library(ggwordcloud)
+
+# bing = positive / negative
+bing_summary <- unigrams %>%
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  count(movie, sentiment) %>%
+  pivot_wider(
+    names_from = sentiment,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  mutate(
+    bing_score = positive - negative
+  )
+
+bing_summary
+```
+
+# Is Dogville Anti-American
+
+```{r}
+problem_bigram <- "anti american"
+
+dogville_bigram_check <- dogville %>%
+  mutate(
+    review_text_clean = review_text %>%
+      str_to_lower() %>%
+      str_replace_all("<br\\s*/?>", " ") %>%
+      str_replace_all("[^a-z\\s]", " ") %>%
+      str_squish()
+  ) %>%
+  filter(str_detect(review_text_clean, problem_bigram)) %>%
+  select(row_id, review_title, review_text, review_text_clean)
+
+nrow(dogville_bigram_check)
+
+dogville_bigram_check %>%
+  select(row_id, review_title, review_text_clean) %>%
+  head(20)
+```
+
+```{r}
+dogville_anti_american <- dogville %>%
+  mutate(
+    text_clean = review_text %>%
+      str_to_lower() %>%
+      str_replace_all("[^a-z\\s]", " ") %>%
+      str_squish(),
+    
+    mentions_anti_american = str_detect(text_clean, "anti american"),
+    
+    mentions_review = str_detect(
+      text_clean,
+      "review|reviewer|critic|criticism|article|comment|claim|called|calling"
+    ),
+    
+    context = str_extract(
+      text_clean,
+      ".{0,100}anti american.{0,100}"
+    )
+  ) %>%
+  filter(mentions_anti_american) %>%
+  select(
+    row_id,
+    review_title,
+    mentions_review,
+    movie_review_score,
+    context
+  )
+
+dogville_anti_american %>%
+  count(mentions_review)
+
+dogville_anti_american
+```
+
+```{r}
+dogville_anti_american_summary <- dogville %>%
+  mutate(
+    text_clean = review_text %>%
+      str_to_lower() %>%
+      str_replace_all("[^a-z\\s]", " ") %>%
+      str_squish(),
+
+    mentions_anti_american = str_detect(text_clean, "anti american"),
+
+    mentions_review_or_critic = str_detect(
+      text_clean,
+      "review|reviewer|critic|critics|criticism|article"
+    )
+  ) %>%
+  filter(mentions_anti_american) %>%
+  summarise(
+    reviews_mentioning_anti_american = n(),
+    of_those_mentions_review_or_critic = sum(mentions_review_or_critic),
+    percent = of_those_mentions_review_or_critic / reviews_mentioning_anti_american
+  )
+
+dogville_anti_american_summary
+```
+
+# clean data
+
+```{r}
+library(tidyverse)
+library(readr)
+library(stringr)
+
+clean_reviews <- function(file_path, movie_name) {
+  read_csv(file_path) %>%
+    mutate(movie = movie_name) %>%
+    select(movie, row_id, review_title, review_date, movie_review_score, review_text) %>%
+    mutate(
+      review_text_clean = review_text %>%
+        str_to_lower() %>%
+        str_replace_all("<br\\s*/?>", " ") %>%
+        str_replace_all("[^a-z\\s]", " ") %>%
+        str_squish()
+    )
+}
+
+dogville <- clean_reviews("data/dogville_reviews_text_only.csv", "Dogville")
+elf <- clean_reviews("data/elf_reviews_text_only.csv", "Elf")
+
+reviews <- bind_rows(dogville, elf)
+
+head(reviews)
+
+head(elf)
+```

@@ -1,0 +1,229 @@
+---
+title: "Making Sense<br>of Messy Data"
+author: "Randi Bolt"
+format:
+  revealjs:
+    theme: night
+    slide-number: true
+---
+
+## Agenda
+
+::::::::::::::: columns
+::::: {.column width="25%"}
+:::: fragment
+![](img/tina.png){width="100%" fig-alt="A cartoon-style vertical illustration shows Tina Kotek standing in an Oregon Employment Department meeting room and asking, “Can your team analyze this survey data?” Three analysts sit around a table with a laptop, notebook, and simple chart printouts. An OED sign is on the wall, and the Oregon State Capitol is visible through the window."}
+
+::: {style="text-align: center;"}
+**The Challenges**
+:::
+::::
+:::::
+
+::::: {.column width="25%"}
+:::: fragment
+![](img/elf.jpg){width="100%" fig-alt=""}
+
+::: {style="text-align: center;"}
+**Basic Workflow & Sentiment Analysis**
+:::
+::::
+:::::
+
+::::: {.column width="25%"}
+:::: fragment
+![](img/elf.jpg){width="100%"}
+
+::: {style="text-align: center;"}
+**Topic Modeling**
+:::
+::::
+:::::
+
+::::: {.column width="25%"}
+:::: fragment
+![](img/elf.jpg){width="100%"}
+
+::: {style="text-align: center;"}
+**Sharing the Results**
+:::
+::::
+:::::
+:::::::::::::::
+
+## The Challenges of Open Text Response Data
+
+:::::::: {style="text-align: center; font-size: 1.35em; margin-top: 1em;"}
+::: fragment
+**Tight timeline**
+:::
+
+::: fragment
+**4,000+ open-ended responses**
+:::
+
+::: fragment
+**Small review team**
+:::
+
+::: fragment
+**Manual review can be inconsistent**
+:::
+
+::: fragment
+**Pre-defined categories can shape what reviewers look for**
+:::
+::::::::
+
+## Step 1: Clean the Data
+
+```{r}
+#| echo: true
+#| code-line-numbers: "1|3|4|5-6|7-12"
+
+library(tidyverse)
+
+clean_text <- function(data, text) {
+  data |>
+    mutate(
+      text_clean = {{ text }} |>
+        str_to_lower() |>
+        str_replace_all("<br\\s*/?>", " ") |>
+        str_replace_all("[^a-z0-9\\s]", " ") |>
+        str_squish()
+    )
+}
+```
+
+## Step 2: Tokenize the Text
+
+```{r}
+#| echo: true
+#| code-line-numbers: "1|2|3-5"
+library(tidytext)
+tokenize_text <- function(data) {
+  data |>
+    unnest_tokens(word, text_clean) |>
+    anti_join(stop_words, by = "word")
+}
+```
+
+## Step 3: Term frequencies
+
+```{r}
+#| echo: true
+term_frequencies <- function(data) {
+  data |>
+    count(word, sort = TRUE) 
+}
+```
+
+## Step 4: Sentiment analysis
+
+```{r}
+#| echo: true
+library(wordcloud)
+sentiment_wordcloud <- function(data, lexicon = "bing") {
+  data |>
+    inner_join(get_sentiments(lexicon), by = "word") |>
+    count(word, sentiment) |>
+    pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |>
+    column_to_rownames("word") |>
+    as.matrix() |>
+    comparison.cloud(colors = c("#C0392B", "#2E7D32"))
+}
+```
+
+One caveat: this works best with bing or nrc because they have a sentiment column. afinn uses numeric scores, so I would not use that one on the slide.
+
+## Word Cloud Example
+
+```{r}
+#| warning: false
+elf <- read_csv("data/elf_reviews_text_only.csv")
+clean_elf <- clean_text(elf, review_text)
+tokenize_elf <- tokenize_text(clean_elf)
+wordcloud_elf <- sentiment_wordcloud(tokenize_elf)
+wordcloud_elf
+```
+
+## Step 5: Prepare Data for Model
+
+```{r}
+#| echo: true
+library(stm)
+stm_data <- function(data) {
+  dtm <- data |>
+    count(row_id, word) |>
+    cast_sparse(row_id, word, n)
+
+  readCorpus(
+    as.matrix(dtm),
+    type = "dtm"
+  )
+}
+```
+
+## Step 6: Choosing K
+
+```{r}
+#| echo: true
+search_topics <- function(stm_data, k = 2:10) {
+  searchK(
+    documents = stm_data$documents,
+    vocab = stm_data$vocab,
+    K = k
+  )
+}
+```
+
+## Choosing K Example
+
+```{r}
+# dir.create("model", showWarnings = FALSE)
+# saveRDS(search_k_elf, "model/search_k_elf.rds")
+search_k_elf <- readRDS("model/search_k_elf.rds")
+```
+
+
+```{r plot-k, fig.width=9, fig.height=5}
+#| echo: true
+#| cache: true
+# stm_elf <- stm_data(tokenize_elf)
+# search_k_elf <- search_topics(stm_elf)
+plot(search_k_elf)
+```
+
+
+## Step 6: Topic Model
+
+```{r}
+#| echo: true
+model_data <- function(preped_data, k) {
+  stm(
+    documents = preped_data$documents,
+    vocab = preped_data$vocab,
+    K = k,
+    init.type = "Spectral"
+  )
+}
+```
+
+## Topic Model Example
+
+```{r}
+# saveRDS(model_elf, "model/model_elf.rds")
+model_elf <- readRDS("model/model_elf.rds")
+```
+
+```{r}
+#| echo: true
+#| cache: true
+# model_elf <- model_data(stm_elf, k = 8)
+plot(model_elf)
+# plot(model_elf, type = "hist")
+```
+
+## Conclusion
+
+coming soon...

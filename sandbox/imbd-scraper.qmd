@@ -1,0 +1,87 @@
+---
+title: "imbd-scraper"
+format: html
+---
+
+```{r}
+library(rvest)
+library(dplyr)
+library(stringr)
+library(readr)
+
+scrape_imdb_reviews <- function(url, movie_name) {
+  page <- read_html(url)
+
+  reviews <- page %>%
+    html_elements("[data-testid='review-card']")
+
+  tibble(
+    movie = movie_name,
+    review_title = reviews %>%
+      html_element("[data-testid='review-summary']") %>%
+      html_text2(),
+    review_text = reviews %>%
+      html_element("[data-testid='review-overflow']") %>%
+      html_text2(),
+    rating = reviews %>%
+      html_element("[data-testid='review-rating']") %>%
+      html_text2(),
+    review_date = reviews %>%
+      html_element(".ipc-inline-list__item") %>%
+      html_text2()
+  )
+}
+
+dogville_url <- "https://www.imdb.com/title/tt0276919/reviews/"
+elf_url <- "https://www.imdb.com/title/tt0319343/reviews/"
+
+dogville <- scrape_imdb_reviews(dogville_url, "Dogville")
+elf <- scrape_imdb_reviews(elf_url, "Elf")
+
+reviews <- bind_rows(dogville, elf)
+
+write_csv(reviews, "imdb_reviews_test.csv")
+```
+
+Error in UseMethod("xml_find_all") : no applicable method for 'xml_find_all' applied to an object of class "xml_document"
+
+```{r}
+library(rvest)
+
+url <- "https://www.imdb.com/title/tt0276919/reviews/"
+
+page <- read_html(url)
+
+class(page)
+
+reviews <- page %>%
+  html_elements("body")
+
+length(reviews)
+```
+
+```{r}
+library(stringr)
+library(dplyr)
+library(readr)
+
+html <- readLines("dogville.html", warn = FALSE, encoding = "UTF-8")
+html <- paste(html, collapse = "\n")
+
+reviews <- str_extract_all(
+  html,
+  '(?<=<div class="text show-more__control">).*?(?=</div>)'
+)[[1]]
+
+reviews <- reviews |>
+  str_replace_all("<br ?/?>", " ") |>
+  str_replace_all("<.*?>", "") |>
+  str_squish()
+
+dogville_reviews <- tibble(
+  movie = "Dogville",
+  review_text = reviews
+)
+
+write_csv(dogville_reviews, "dogville_reviews.csv")
+```

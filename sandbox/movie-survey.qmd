@@ -1,0 +1,43 @@
+---
+title: "movie-survey"
+---
+
+```{r}
+library(reticulate)
+
+py_install("cinemagoer", pip = TRUE)
+```
+
+```{r}
+py_run_string("
+import imdb
+ia = imdb.Cinemagoer()
+print('worked')
+")
+```
+
+```{python}
+import csv
+import imdb
+
+ia = imdb.Cinemagoer()
+
+output_file = "/Users/randi/Desktop/2026/movie-survey/movies.csv"
+
+movies = [["title", "year", "genres"]]
+
+for genre in ["drama":
+    results = ia.get_keyword(genre, results=100)
+
+    for movie in results:
+        title = movie.get("title")
+        year = movie.get("year")
+        genres = movie.get("genres", [])
+
+        if year and year >= 2020:
+            movies.append([title, year, ", ".join(genres)])
+
+with open(output_file, "w", newline="", encoding="utf-8") as file:
+    writer = csv.writer(file)
+    writer.writerows(movies)
+```
