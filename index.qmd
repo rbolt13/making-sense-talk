@@ -22,10 +22,16 @@ format:
 
 ::::: {.column width="25%"}
 :::: fragment
-![](img/elf.jpg){width="100%" fig-alt=""}
-
 ::: {style="text-align: center;"}
-**Basic Workflow & Sentiment Analysis**
+![](images/clipboard-4240233675.png)**Basic Workflow & Sentiment Analysis**
+:::
+::::
+:::::
+
+::::: {.column width="25%"}
+:::: fragment
+::: {style="text-align: center;"}
+![](images/clipboard-1160658675.png)**Choosing K**
 :::
 ::::
 :::::
@@ -36,16 +42,6 @@ format:
 
 ::: {style="text-align: center;"}
 **Topic Modeling**
-:::
-::::
-:::::
-
-::::: {.column width="25%"}
-:::: fragment
-![](img/elf.jpg){width="100%"}
-
-::: {style="text-align: center;"}
-**Sharing the Results**
 :::
 ::::
 :::::
