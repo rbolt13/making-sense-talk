@@ -95,7 +95,7 @@ clean_text <- function(data, text) {
 
 ```{r}
 #| echo: true
-#| code-line-numbers: "1|2|3-5"
+#| code-line-numbers: "1|2|3-4|5"
 library(tidytext)
 tokenize_text <- function(data) {
   data |>
@@ -108,51 +108,74 @@ tokenize_text <- function(data) {
 
 ```{r}
 #| echo: true
-term_frequencies <- function(data) {
-  data |>
+#| code-line-numbers: "1|2-3"
+term_frequencies <- function(tokenize_data) {
+  tokenize_data |>
     count(word, sort = TRUE) 
 }
+```
+
+## Term Frequencies Example
+
+```{r}
+#| warning: false
+#| echo: true
+#| code-line-numbers: "1|2|3|4|5"
+elf <- read_csv("data/elf_reviews_text_only.csv")
+clean_elf <- clean_text(elf, review_text)
+tokenize_elf <- tokenize_text(clean_elf)
+term_frequencies_elf <- term_frequencies(tokenize_elf)
+term_frequencies_elf
 ```
 
 ## Step 4: Sentiment analysis
 
 ```{r}
 #| echo: true
+#| code-line-numbers: "1|2|3-4|5|6-9|10|11|12"
 library(wordcloud)
 sentiment_wordcloud <- function(data, lexicon = "bing") {
   data |>
     inner_join(get_sentiments(lexicon), by = "word") |>
     count(word, sentiment) |>
-    pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) |>
+    pivot_wider(
+      names_from = sentiment, 
+      values_from = n, 
+      values_fill = 0) |>
     column_to_rownames("word") |>
-    as.matrix() |>
+   # as.matrix() |>
     comparison.cloud(colors = c("#C0392B", "#2E7D32"))
 }
 ```
 
-One caveat: this works best with bing or nrc because they have a sentiment column. afinn uses numeric scores, so I would not use that one on the slide.
 
 ## Word Cloud Example
 
 ```{r}
 #| warning: false
-elf <- read_csv("data/elf_reviews_text_only.csv")
-clean_elf <- clean_text(elf, review_text)
-tokenize_elf <- tokenize_text(clean_elf)
+#| echo: true
+#| eval: false
+#| code-line-numbers: "1|2"
 wordcloud_elf <- sentiment_wordcloud(tokenize_elf)
 wordcloud_elf
+```
+
+```{r}
+#| warning: false
+wordcloud_elf <- sentiment_wordcloud(tokenize_elf)
+invisible(wordcloud_elf)
 ```
 
 ## Step 5: Prepare Data for Model
 
 ```{r}
 #| echo: true
+#| code-line-numbers: "1|2|3-5|6-8"
 library(stm)
-stm_data <- function(data) {
-  dtm <- data |>
+stm_data <- function(tokenize_data) {
+  dtm <- tokenize_data |>
     count(row_id, word) |>
     cast_sparse(row_id, word, n)
-
   readCorpus(
     as.matrix(dtm),
     type = "dtm"
@@ -164,6 +187,7 @@ stm_data <- function(data) {
 
 ```{r}
 #| echo: true
+#| code-line-numbers: "1|2-6"
 search_topics <- function(stm_data, k = 2:10) {
   searchK(
     documents = stm_data$documents,
@@ -173,19 +197,38 @@ search_topics <- function(stm_data, k = 2:10) {
 }
 ```
 
+::: {.fragment}
+### Considerations
+:::
+
+::: {.fragment}
+1. Where does held-out mostly plateau?
+:::
+
+::: {.fragment}
+2. Where does residuals mostly level off?
+:::
+
+::: {.fragment}
+3. Where are exclusivity and coherence both reasonable?
+:::
+
 ## Choosing K Example
+
+```{r}
+#| cache: true
+#| echo: true
+#| eval: false
+#| code-line-numbers: "1|2|3"
+stm_elf <- stm_data(tokenize_elf)
+search_k_elf <- search_topics(stm_elf)
+plot(search_k_elf)
+```
 
 ```{r}
 # dir.create("model", showWarnings = FALSE)
 # saveRDS(search_k_elf, "model/search_k_elf.rds")
 search_k_elf <- readRDS("model/search_k_elf.rds")
-```
-
-```{r plot-k, fig.width=9, fig.height=5}
-#| echo: true
-#| cache: true
-# stm_elf <- stm_data(tokenize_elf)
-# search_k_elf <- search_topics(stm_elf)
 plot(search_k_elf)
 ```
 
@@ -193,7 +236,8 @@ plot(search_k_elf)
 
 ```{r}
 #| echo: true
-model_data <- function(preped_data, k) {
+#| code-line-numbers: "1|2-7"
+model_data <- function(stm_data, k) {
   stm(
     documents = preped_data$documents,
     vocab = preped_data$vocab,
@@ -206,16 +250,17 @@ model_data <- function(preped_data, k) {
 ## Topic Model Example
 
 ```{r}
-# saveRDS(model_elf, "model/model_elf.rds")
-model_elf <- readRDS("model/model_elf.rds")
+#| cache: true
+#| echo: true
+#| eval: false
+#| code-line-numbers: "1|2"
+model_elf <- model_data(stm_elf, k = 8)
+plot(model_elf)
 ```
 
 ```{r}
-#| echo: true
-#| cache: true
-# model_elf <- model_data(stm_elf, k = 8)
+model_elf <- readRDS("model/model_elf.rds")
 plot(model_elf)
-# plot(model_elf, type = "hist")
 ```
 
 ## Conclusion

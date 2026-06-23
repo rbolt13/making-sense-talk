@@ -474,7 +474,7 @@ Randi Bolt
 <section id="step-2-tokenize-the-text" class="slide level2">
 <h2>Step 2: Tokenize the Text</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2" data-code-line-numbers="1|2|3-5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href=""></a><span class="fu">library</span>(tidytext)</span>
+<div class="sourceCode cell-code" id="cb2" data-code-line-numbers="1|2|3-4|5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href=""></a><span class="fu">library</span>(tidytext)</span>
 <span id="cb2-2"><a href=""></a>tokenize_text <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
 <span id="cb2-3"><a href=""></a>  data <span class="sc">|&gt;</span></span>
 <span id="cb2-4"><a href=""></a>    <span class="fu">unnest_tokens</span>(word, text_clean) <span class="sc">|&gt;</span></span>
@@ -485,96 +485,140 @@ Randi Bolt
 <section id="step-3-term-frequencies" class="slide level2">
 <h2>Step 3: Term frequencies</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href=""></a>term_frequencies <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
-<span id="cb3-2"><a href=""></a>  data <span class="sc">|&gt;</span></span>
+<div class="sourceCode cell-code" id="cb3" data-code-line-numbers="1|2-3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href=""></a>term_frequencies <span class="ot">&lt;-</span> <span class="cf">function</span>(tokenize_data) {</span>
+<span id="cb3-2"><a href=""></a>  tokenize_data <span class="sc">|&gt;</span></span>
 <span id="cb3-3"><a href=""></a>    <span class="fu">count</span>(word, <span class="at">sort =</span> <span class="cn">TRUE</span>) </span>
 <span id="cb3-4"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="term-frequencies-example" class="slide level2">
+<h2>Term Frequencies Example</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4" data-code-line-numbers="1|2|3|4|5"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href=""></a>elf <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/elf_reviews_text_only.csv"</span>)</span>
+<span id="cb4-2"><a href=""></a>clean_elf <span class="ot">&lt;-</span> <span class="fu">clean_text</span>(elf, review_text)</span>
+<span id="cb4-3"><a href=""></a>tokenize_elf <span class="ot">&lt;-</span> <span class="fu">tokenize_text</span>(clean_elf)</span>
+<span id="cb4-4"><a href=""></a>term_frequencies_elf <span class="ot">&lt;-</span> <span class="fu">term_frequencies</span>(tokenize_elf)</span>
+<span id="cb4-5"><a href=""></a>term_frequencies_elf</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4,167 × 2
+   word          n
+   &lt;chr&gt;     &lt;int&gt;
+ 1 movie       529
+ 2 elf         518
+ 3 christmas   460
+ 4 film        387
+ 5 buddy       323
+ 6 ferrell     298
+ 7 santa       168
+ 8 funny       162
+ 9 watch       143
+10 family      126
+# ℹ 4,157 more rows</code></pre>
+</div>
 </div>
 </section>
 <section id="step-4-sentiment-analysis" class="slide level2">
 <h2>Step 4: Sentiment analysis</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href=""></a><span class="fu">library</span>(wordcloud)</span>
-<span id="cb4-2"><a href=""></a>sentiment_wordcloud <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">lexicon =</span> <span class="st">"bing"</span>) {</span>
-<span id="cb4-3"><a href=""></a>  data <span class="sc">|&gt;</span></span>
-<span id="cb4-4"><a href=""></a>    <span class="fu">inner_join</span>(<span class="fu">get_sentiments</span>(lexicon), <span class="at">by =</span> <span class="st">"word"</span>) <span class="sc">|&gt;</span></span>
-<span id="cb4-5"><a href=""></a>    <span class="fu">count</span>(word, sentiment) <span class="sc">|&gt;</span></span>
-<span id="cb4-6"><a href=""></a>    <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> sentiment, <span class="at">values_from =</span> n, <span class="at">values_fill =</span> <span class="dv">0</span>) <span class="sc">|&gt;</span></span>
-<span id="cb4-7"><a href=""></a>    <span class="fu">column_to_rownames</span>(<span class="st">"word"</span>) <span class="sc">|&gt;</span></span>
-<span id="cb4-8"><a href=""></a>    <span class="fu">as.matrix</span>() <span class="sc">|&gt;</span></span>
-<span id="cb4-9"><a href=""></a>    <span class="fu">comparison.cloud</span>(<span class="at">colors =</span> <span class="fu">c</span>(<span class="st">"#C0392B"</span>, <span class="st">"#2E7D32"</span>))</span>
-<span id="cb4-10"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6" data-code-line-numbers="1|2|3-4|5|6-9|10|11|12"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href=""></a><span class="fu">library</span>(wordcloud)</span>
+<span id="cb6-2"><a href=""></a>sentiment_wordcloud <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">lexicon =</span> <span class="st">"bing"</span>) {</span>
+<span id="cb6-3"><a href=""></a>  data <span class="sc">|&gt;</span></span>
+<span id="cb6-4"><a href=""></a>    <span class="fu">inner_join</span>(<span class="fu">get_sentiments</span>(lexicon), <span class="at">by =</span> <span class="st">"word"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-5"><a href=""></a>    <span class="fu">count</span>(word, sentiment) <span class="sc">|&gt;</span></span>
+<span id="cb6-6"><a href=""></a>    <span class="fu">pivot_wider</span>(</span>
+<span id="cb6-7"><a href=""></a>      <span class="at">names_from =</span> sentiment, </span>
+<span id="cb6-8"><a href=""></a>      <span class="at">values_from =</span> n, </span>
+<span id="cb6-9"><a href=""></a>      <span class="at">values_fill =</span> <span class="dv">0</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-10"><a href=""></a>    <span class="fu">column_to_rownames</span>(<span class="st">"word"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb6-11"><a href=""></a>   <span class="co"># as.matrix() |&gt;</span></span>
+<span id="cb6-12"><a href=""></a>    <span class="fu">comparison.cloud</span>(<span class="at">colors =</span> <span class="fu">c</span>(<span class="st">"#C0392B"</span>, <span class="st">"#2E7D32"</span>))</span>
+<span id="cb6-13"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>One caveat: this works best with bing or nrc because they have a sentiment column. afinn uses numeric scores, so I would not use that one on the slide.</p>
 </section>
 <section id="word-cloud-example" class="slide level2">
 <h2>Word Cloud Example</h2>
 <div class="cell">
+<div class="sourceCode cell-code" id="cb7" data-code-line-numbers="1|2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href=""></a>wordcloud_elf <span class="ot">&lt;-</span> <span class="fu">sentiment_wordcloud</span>(tokenize_elf)</span>
+<span id="cb7-2"><a href=""></a>wordcloud_elf</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 
-<div class="cell-output cell-output-stdout">
-<pre><code>NULL</code></pre>
-</div>
-</div>
-<img data-src="index_files/figure-revealjs/unnamed-chunk-5-1.png" width="960" class="r-stretch"></section>
+<img data-src="index_files/figure-revealjs/unnamed-chunk-7-1.png" width="960" class="r-stretch"></section>
 <section id="step-5-prepare-data-for-model" class="slide level2">
 <h2>Step 5: Prepare Data for Model</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href=""></a><span class="fu">library</span>(stm)</span>
-<span id="cb6-2"><a href=""></a>stm_data <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
-<span id="cb6-3"><a href=""></a>  dtm <span class="ot">&lt;-</span> data <span class="sc">|&gt;</span></span>
-<span id="cb6-4"><a href=""></a>    <span class="fu">count</span>(row_id, word) <span class="sc">|&gt;</span></span>
-<span id="cb6-5"><a href=""></a>    <span class="fu">cast_sparse</span>(row_id, word, n)</span>
-<span id="cb6-6"><a href=""></a></span>
-<span id="cb6-7"><a href=""></a>  <span class="fu">readCorpus</span>(</span>
-<span id="cb6-8"><a href=""></a>    <span class="fu">as.matrix</span>(dtm),</span>
-<span id="cb6-9"><a href=""></a>    <span class="at">type =</span> <span class="st">"dtm"</span></span>
-<span id="cb6-10"><a href=""></a>  )</span>
-<span id="cb6-11"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8" data-code-line-numbers="1|2|3-5|6-8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href=""></a><span class="fu">library</span>(stm)</span>
+<span id="cb8-2"><a href=""></a>stm_data <span class="ot">&lt;-</span> <span class="cf">function</span>(tokenize_data) {</span>
+<span id="cb8-3"><a href=""></a>  dtm <span class="ot">&lt;-</span> tokenize_data <span class="sc">|&gt;</span></span>
+<span id="cb8-4"><a href=""></a>    <span class="fu">count</span>(row_id, word) <span class="sc">|&gt;</span></span>
+<span id="cb8-5"><a href=""></a>    <span class="fu">cast_sparse</span>(row_id, word, n)</span>
+<span id="cb8-6"><a href=""></a>  <span class="fu">readCorpus</span>(</span>
+<span id="cb8-7"><a href=""></a>    <span class="fu">as.matrix</span>(dtm),</span>
+<span id="cb8-8"><a href=""></a>    <span class="at">type =</span> <span class="st">"dtm"</span></span>
+<span id="cb8-9"><a href=""></a>  )</span>
+<span id="cb8-10"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="step-6-choosing-k" class="slide level2">
 <h2>Step 6: Choosing K</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href=""></a>search_topics <span class="ot">&lt;-</span> <span class="cf">function</span>(stm_data, <span class="at">k =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">10</span>) {</span>
-<span id="cb7-2"><a href=""></a>  <span class="fu">searchK</span>(</span>
-<span id="cb7-3"><a href=""></a>    <span class="at">documents =</span> stm_data<span class="sc">$</span>documents,</span>
-<span id="cb7-4"><a href=""></a>    <span class="at">vocab =</span> stm_data<span class="sc">$</span>vocab,</span>
-<span id="cb7-5"><a href=""></a>    <span class="at">K =</span> k</span>
-<span id="cb7-6"><a href=""></a>  )</span>
-<span id="cb7-7"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9" data-code-line-numbers="1|2-6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href=""></a>search_topics <span class="ot">&lt;-</span> <span class="cf">function</span>(stm_data, <span class="at">k =</span> <span class="dv">2</span><span class="sc">:</span><span class="dv">10</span>) {</span>
+<span id="cb9-2"><a href=""></a>  <span class="fu">searchK</span>(</span>
+<span id="cb9-3"><a href=""></a>    <span class="at">documents =</span> stm_data<span class="sc">$</span>documents,</span>
+<span id="cb9-4"><a href=""></a>    <span class="at">vocab =</span> stm_data<span class="sc">$</span>vocab,</span>
+<span id="cb9-5"><a href=""></a>    <span class="at">K =</span> k</span>
+<span id="cb9-6"><a href=""></a>  )</span>
+<span id="cb9-7"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="fragment">
+<!-- -->
+<h3 id="considerations">Considerations</h3>
+</div>
+<div class="fragment">
+<ol type="1">
+<li>Where does held-out mostly plateau?</li>
+</ol>
+</div>
+<div class="fragment">
+<ol start="2" type="1">
+<li>Where does residuals mostly level off?</li>
+</ol>
+</div>
+<div class="fragment">
+<ol start="3" type="1">
+<li>Where are exclusivity and coherence both reasonable?</li>
+</ol>
 </div>
 </section>
 <section id="choosing-k-example" class="slide level2">
 <h2>Choosing K Example</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href=""></a><span class="co"># stm_elf &lt;- stm_data(tokenize_elf)</span></span>
-<span id="cb8-2"><a href=""></a><span class="co"># search_k_elf &lt;- search_topics(stm_elf)</span></span>
-<span id="cb8-3"><a href=""></a><span class="fu">plot</span>(search_k_elf)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-
+<div class="sourceCode cell-code" id="cb10" data-code-line-numbers="1|2|3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href=""></a>stm_elf <span class="ot">&lt;-</span> <span class="fu">stm_data</span>(tokenize_elf)</span>
+<span id="cb10-2"><a href=""></a>search_k_elf <span class="ot">&lt;-</span> <span class="fu">search_topics</span>(stm_elf)</span>
+<span id="cb10-3"><a href=""></a><span class="fu">plot</span>(search_k_elf)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<img data-src="index_files/figure-revealjs/plot-k-1.png" width="864" class="r-stretch"></section>
+
+<img data-src="index_files/figure-revealjs/unnamed-chunk-11-1.png" width="960" class="r-stretch"></section>
 <section id="step-6-topic-model" class="slide level2">
 <h2>Step 6: Topic Model</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href=""></a>model_data <span class="ot">&lt;-</span> <span class="cf">function</span>(preped_data, k) {</span>
-<span id="cb9-2"><a href=""></a>  <span class="fu">stm</span>(</span>
-<span id="cb9-3"><a href=""></a>    <span class="at">documents =</span> preped_data<span class="sc">$</span>documents,</span>
-<span id="cb9-4"><a href=""></a>    <span class="at">vocab =</span> preped_data<span class="sc">$</span>vocab,</span>
-<span id="cb9-5"><a href=""></a>    <span class="at">K =</span> k,</span>
-<span id="cb9-6"><a href=""></a>    <span class="at">init.type =</span> <span class="st">"Spectral"</span></span>
-<span id="cb9-7"><a href=""></a>  )</span>
-<span id="cb9-8"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11" data-code-line-numbers="1|2-7"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href=""></a>model_data <span class="ot">&lt;-</span> <span class="cf">function</span>(stm_data, k) {</span>
+<span id="cb11-2"><a href=""></a>  <span class="fu">stm</span>(</span>
+<span id="cb11-3"><a href=""></a>    <span class="at">documents =</span> preped_data<span class="sc">$</span>documents,</span>
+<span id="cb11-4"><a href=""></a>    <span class="at">vocab =</span> preped_data<span class="sc">$</span>vocab,</span>
+<span id="cb11-5"><a href=""></a>    <span class="at">K =</span> k,</span>
+<span id="cb11-6"><a href=""></a>    <span class="at">init.type =</span> <span class="st">"Spectral"</span></span>
+<span id="cb11-7"><a href=""></a>  )</span>
+<span id="cb11-8"><a href=""></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="topic-model-example" class="slide level2">
 <h2>Topic Model Example</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href=""></a><span class="co"># model_elf &lt;- model_data(stm_elf, k = 8)</span></span>
-<span id="cb10-2"><a href=""></a><span class="fu">plot</span>(model_elf)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href=""></a><span class="co"># plot(model_elf, type = "hist")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12" data-code-line-numbers="1|2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href=""></a>model_elf <span class="ot">&lt;-</span> <span class="fu">model_data</span>(stm_elf, <span class="at">k =</span> <span class="dv">8</span>)</span>
+<span id="cb12-2"><a href=""></a><span class="fu">plot</span>(model_elf)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<img data-src="index_files/figure-revealjs/unnamed-chunk-11-1.png" width="960" class="r-stretch"></section>
+
+<img data-src="index_files/figure-revealjs/unnamed-chunk-14-1.png" width="960" class="r-stretch"></section>
 <section id="conclusion" class="slide level2">
 <h2>Conclusion</h2>
 <p>coming soon…</p>
