@@ -3,3 +3,6 @@ project:
 
 editor: visual
 
+format:
+  revealjs:
+    footer: "making-sense-talk.netlify.app"
