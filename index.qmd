@@ -259,4 +259,8 @@ plot(model_elf)
 
 ## Conclusion
 
+::: fragment
+
 ![](images/clipboard-1133258828.png)
+
+:::
