@@ -165,7 +165,7 @@ invisible(wordcloud_elf)
 
 ```{r}
 #| echo: true
-#| code-line-numbers: "1|2|3-5|6-8"
+#| code-line-numbers: "1|2|3-5|6-8|5|6-8"
 library(stm)
 stm_data <- function(tokenize_data) {
   dtm <- tokenize_data |>
